@@ -1,0 +1,61 @@
+{
+  "graph_meta": {
+    "value": {
+      "graph_id": "mirofish_31ab16136f7743bd",
+      "name": "Context_context_f38a057eb256",
+      "description": "MiroFish Social Simulation Graph",
+      "created_at": "2026-09-12T10:06:06.160997"
+    },
+    "updated_at": "2026-09-12T10:06:06.160997"
+  },
+  "ontology": {
+    "value": {
+      "error": "Please provide the actual text content for analysis.",
+      "entity_types": [
+        {
+          "name": "Person",
+          "description": "Any individual person not fitting other specific person types.",
+          "attributes": [
+            {
+              "name": "full_name",
+              "type": "text",
+              "description": "Full name of the person"
+            },
+            {
+              "name": "role",
+              "type": "text",
+              "description": "Role or occupation"
+            }
+          ],
+          "examples": [
+            "ordinary citizen",
+            "anonymous netizen"
+          ]
+        },
+        {
+          "name": "Organization",
+          "description": "Any organization not fitting other specific organization types.",
+          "attributes": [
+            {
+              "name": "org_name",
+              "type": "text",
+              "description": "Name of the organization"
+            },
+            {
+              "name": "org_type",
+              "type": "text",
+              "description": "Type of organization"
+            }
+          ],
+          "examples": [
+            "small business",
+            "community group"
+          ]
+        }
+      ],
+      "edge_types": [],
+      "analysis_summary": ""
+    },
+    "updated_at": "2026-09-12T10:06:06.193887"
+  }
+}

@@ -1,1 +1,0 @@
-Simulate how a heterogeneous urban community responds to four alternative flood-evacuation strategies: Immediate Mass Evacuation, Phased Evacuation, Vulnerable-First Evacuation, and Shelter-in-Place with Targeted Evacuation.

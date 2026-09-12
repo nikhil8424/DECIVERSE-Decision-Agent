@@ -56,7 +56,7 @@ class BuildGraphTool:
             project.graph_build_task_id = None
             project.error = None
 
-        graph_name = graph_name or project.name or "MiroFish Graph"
+        graph_name = graph_name or project.name or "DECIVERSE Graph"
         chunk_size = chunk_size or project.chunk_size or Config.DEFAULT_CHUNK_SIZE
         chunk_overlap = chunk_overlap or project.chunk_overlap or Config.DEFAULT_CHUNK_OVERLAP
 

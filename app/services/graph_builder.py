@@ -69,7 +69,7 @@ class GraphBuilderService:
         self,
         text: str,
         ontology: Dict[str, Any],
-        graph_name: str = "MiroFish Graph",
+        graph_name: str = "DECIVERSE Graph",
         chunk_size: int = 500,
         chunk_overlap: int = 50,
         batch_size: int = 3
@@ -225,12 +225,12 @@ class GraphBuilderService:
                 {
                     "graph_id": graph_id,
                     "name": name,
-                    "description": "MiroFish Social Simulation Graph",
+                    "description": "DECIVERSE Social Simulation Graph",
                     "created_at": datetime.now().isoformat(),
                 },
             )
             return graph_id
-        self.db.create_graph(graph_id, name, "MiroFish Social Simulation Graph")
+        self.db.create_graph(graph_id, name, "DECIVERSE Social Simulation Graph")
         return graph_id
 
     def set_ontology(self, graph_id: str, ontology: Dict[str, Any]):

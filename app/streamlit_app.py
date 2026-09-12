@@ -1,4 +1,4 @@
-"""Streamlit UI for MiroFish Community - AI-Powered Social Decision Simulator."""
+"""Streamlit UI for DECIVERSE - AI-Powered Social Decision Simulator."""
 
 from __future__ import annotations
 
@@ -30,12 +30,23 @@ from app.research import (
     DecisionComparisonEngine,
     DecisionIntelligenceEngine,
 )
+from app.agent import (
+    AutonomousDecisionController,
+    DecisionState,
+    AgentStatus,
+    ProviderFailoverManager,
+    DisruptionEngine,
+    DomainDisruptionType,
+    TechnicalDisruptionType,
+    HumanInteractionManager,
+    Verifier,
+)
 
 
 # Page configuration
 st.set_page_config(
-    page_title="MiroFish Community",
-    page_icon="🐟",
+    page_title="DECIVERSE — Autonomous Agent",
+    page_icon="🌐",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -44,21 +55,29 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.5rem;
+        font-size: 2.3rem;
         font-weight: bold;
         color: #1D1D1D;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        margin-bottom: 2rem;
+        font-size: 1.1rem;
+        color: #555;
+        margin-bottom: 1.5rem;
     }
     .metric-card {
         background: white;
         padding: 1rem;
         border-radius: 0.5rem;
         border: 1px solid #E6DED2;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .trace-card {
+        padding: 0.8rem;
+        border-radius: 0.4rem;
+        margin-bottom: 0.6rem;
+        font-family: monospace;
+        font-size: 0.9rem;
     }
     .status-running {
         color: #E36414;
@@ -80,7 +99,7 @@ st.markdown("""
 def init_session_state():
     """Initialize Streamlit session state variables."""
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'dashboard'
+        st.session_state.current_page = 'autonomous_agent'
     if 'selected_run_id' not in st.session_state:
         st.session_state.selected_run_id = None
     if 'active_run_id' not in st.session_state:
@@ -93,6 +112,16 @@ def init_session_state():
         st.session_state.scenario_manager = ScenarioManager()
     if 'current_problem_id' not in st.session_state:
         st.session_state.current_problem_id = None
+    if 'agent_state' not in st.session_state:
+        st.session_state.agent_state = None
+    if 'agent_controller' not in st.session_state:
+        st.session_state.agent_controller = None
+    if 'agent_traces' not in st.session_state:
+        st.session_state.agent_traces = []
+    if 'disruption_engine' not in st.session_state:
+        st.session_state.disruption_engine = DisruptionEngine()
+    if 'provider_manager' not in st.session_state:
+        st.session_state.provider_manager = ProviderFailoverManager()
 
 
 init_session_state()
@@ -102,9 +131,17 @@ init_session_state()
 def render_navigation():
     """Render sidebar navigation."""
     with st.sidebar:
-        st.title("🐟 MiroFish Community")
+        st.title("🌐 DECIVERSE")
+        st.caption("Agentic AI Social Decision Simulator")
         st.markdown("---")
         
+        # Prominently feature the Autonomous Agent page
+        if st.button("🤖 Autonomous Decision Agent", key="nav_autonomous_agent", type="primary", use_container_width=True):
+            st.session_state.current_page = "autonomous_agent"
+            st.rerun()
+            
+        st.markdown("---")
+        st.caption("Simulator Research Modules")
         pages = [
             ("Dashboard", "dashboard"),
             ("Community Problem", "community_problem"),
@@ -129,15 +166,18 @@ def render_navigation():
         st.markdown("---")
         
         # Configuration info
-        st.subheader("Configuration")
-        provider_display = {
-            "claude-cli": "Claude CLI",
-            "codex-cli": "Codex CLI", 
-            "ollama": f"Ollama ({Config.OLLAMA_MODEL})"
-        }.get(Config.LLM_PROVIDER, Config.LLM_PROVIDER)
+        st.subheader("LLM Provider & Health")
+        p_mgr: ProviderFailoverManager = st.session_state.provider_manager
+        active_p = p_mgr.active_provider
+        status_map = p_mgr.get_status_summary()
         
-        st.text(f"LLM: {provider_display}")
+        for p_name, p_stat in status_map.items():
+            icon = "🟢" if p_stat == "available" else ("🟡" if p_stat == "degraded" else "🔴")
+            active_badge = " *(Active)*" if p_name == active_p else ""
+            st.text(f"{icon} {p_name}: {p_stat}{active_badge}")
+        
         st.text(f"Data: {Config.DATA_DIR}")
+
 
 
 
@@ -146,7 +186,7 @@ def render_navigation():
 # Dashboard page
 def render_dashboard():
     """Render dashboard page."""
-    st.markdown('<div class="main-header">MiroFish Community</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">DECIVERSE</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">AI-Powered Social Decision Simulator</div>', unsafe_allow_html=True)
     
     st.markdown("Turn real-world evidence into a simulated social world for decision support.")
@@ -1058,19 +1098,19 @@ def render_history():
 # About page
 def render_about():
     """Render about page."""
-    st.markdown('<div class="main-header">About MiroFish Community</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">About DECIVERSE</div>', unsafe_allow_html=True)
     
     st.markdown("""
-    ## What is MiroFish Community?
+    ## What is DECIVERSE?
     
-    MiroFish Community is an AI-powered social decision simulator that transforms 
+    DECIVERSE is an AI-powered social decision simulator that transforms 
     real-world evidence into simulated social worlds for decision support. It helps 
     communities and decision-makers explore possible outcomes of different interventions 
     by simulating heterogeneous stakeholder reactions and emergent social consequences.
     
     ## Research Contribution
     
-    MiroFish Community builds on foundational technologies (MiroFish and OASIS) to provide:
+    DECIVERSE builds on foundational technologies (MiroFish and OASIS) to provide:
     
     - **Community Digital Twin**: Structured representation of community context and stakeholders
     - **Scenario-Based Decision Simulation**: Evaluate multiple candidate decisions
@@ -1098,7 +1138,7 @@ def render_about():
     
     ## Configuration
     
-    MiroFish Community uses environment variables for configuration:
+    DECIVERSE uses environment variables for configuration:
     
     - `LLM_PROVIDER`: claude-cli, codex-cli, or ollama
     - `OLLAMA_BASE_URL`: Ollama server URL (default: http://localhost:11434)
@@ -1341,25 +1381,430 @@ def render_scenario_comparison():
     """)
 
 
-def render_recommendation():
-    """Render recommendation page."""
-    st.markdown('<div class="main-header">Decision Intelligence</div>', unsafe_allow_html=True)
-    st.markdown("Comprehensive decision intelligence and recommendation.")
+def render_autonomous_agent():
+    """Render the full Autonomous Decision Agent page."""
+    st.markdown('<div class="main-header">🤖 Autonomous Decision Agent</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sub-header">Closed-Loop Swarm-Intelligence Optimizer with Transparent Action-Utility Planning, '
+        'SocialImpactModel Verifier, and Resilient Provider Failover</div>',
+        unsafe_allow_html=True
+    )
+
+    # Architectural Loop Overview banner
+    with st.expander("ℹ️ Autonomous Agent Control Architecture & Closed Loop", expanded=False):
+        st.markdown("""
+        ```text
+        GOAL & CONSTRAINTS ──> OBSERVE ──> GENERATE CANDIDATE ACTIONS ──> ACTION-UTILITY RANKING
+                                                                                   │
+        ┌──────────────────────────────────────────────────────────────────────────┘
+        ▼
+        DECIDE ──> ACT (Tools) ──> OBSERVE RESULT ──> EVALUATE (Emergent Impact)
+                                                                │
+        ┌───────────────────────────────────────────────────────┘
+        ▼
+        VERIFY (SocialImpactModel vs Constraints)
+          ├── [VERIFIED]  ──> FINALIZE (Optimal Policy Selected)
+          └── [FAILED / UNCERTAIN] ──> REPLAN (Diagnose Deficits ──> Policy Adaptation ──> ACT)
+        ```
+        """)
+
+    # 1. Inputs & Configuration Layout
+    st.subheader("1. Goal, Constraints & Execution Configuration")
     
-    st.info("Decision intelligence requires completed scenario comparison.")
-    st.info("This page will display:")
-    st.markdown("""
-    - Recommended scenario
-    - Recommendation rationale
-    - Metric comparison summary
-    - Supporting evidence
-    - Key findings
-    - Major risks
-    - Emergent behaviours
-    - Stakeholder reactions
-    - Limitations and uncertainty
-    - Confidence intervals
-    """)
+    col_preset, col_file = st.columns([1, 1])
+    with col_preset:
+        preset_choice = st.selectbox(
+            "Demo Scenario Presets",
+            [
+                "Metro City Transit: Fare-Free Weekend Bus Policy",
+                "Downtown Clean Air & Congestion Charge Zone",
+                "High-Density Affordable Housing Re-zoning",
+                "Custom Goal Definition",
+            ],
+            index=0,
+        )
+    
+    # Presets mapping
+    preset_goals = {
+        "Metro City Transit: Fare-Free Weekend Bus Policy": "Find the most socially viable transit policy that minimizes public polarization and conflict while maximizing adoption across commuters, businesses, and taxpayers.",
+        "Downtown Clean Air & Congestion Charge Zone": "Design a low-emission traffic congestion pricing scheme that reduces emissions without unfairly penalizing low-income commuters or small business delivery logistics.",
+        "High-Density Affordable Housing Re-zoning": "Formulate a municipal housing expansion policy that increases affordable units while addressing neighborhood density and traffic concerns.",
+        "Custom Goal Definition": "Optimize community policy intervention to maximize social adoption and equity while keeping polarization below 0.35.",
+    }
+
+    default_goal = preset_goals.get(preset_choice, "")
+
+    with col_file:
+        source_mode = st.radio("Source Documents", ["Use Repository Sample (demo_transit_policy.md)", "Upload Custom Files"], horizontal=True)
+        uploaded_doc_paths = []
+        if source_mode == "Upload Custom Files":
+            uploaded = st.file_uploader("Upload policy documents (PDF, MD, TXT)", accept_multiple_files=True)
+            if uploaded:
+                for uf in uploaded:
+                    tfile = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{uf.name}")
+                    tfile.write(uf.getvalue())
+                    tfile.close()
+                    uploaded_doc_paths.append(tfile.name)
+        else:
+            sample_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../demo_transit_policy.md"))
+            if os.path.exists(sample_path):
+                uploaded_doc_paths.append(sample_path)
+
+    goal_input = st.text_area("Target Policy Goal", value=default_goal, height=75)
+
+    # Constraints configuration
+    st.markdown("**Constraint Thresholds (Evaluated via SocialImpactModel):**")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        polarization_thresh = st.slider("Max Polarization (<)", 0.10, 0.90, 0.35, 0.05)
+    with c2:
+        conflict_thresh = st.slider("Max Conflict (<)", 0.10, 0.90, 0.30, 0.05)
+    with c3:
+        adoption_thresh = st.slider("Min Adoption (>)", 0.10, 0.90, 0.60, 0.05)
+    with c4:
+        acceptance_thresh = st.slider("Min Acceptance (>)", 0.10, 0.90, 0.65, 0.05)
+
+    parsed_constraints = {
+        "polarization": f"<{polarization_thresh:.2f}",
+        "conflict": f"<{conflict_thresh:.2f}",
+        "adoption": f">{adoption_thresh:.2f}",
+        "acceptance": f">{acceptance_thresh:.2f}",
+    }
+
+    c_iter, c_prov, c_hitl = st.columns([1, 1, 1])
+    with c_iter:
+        max_iterations = st.number_input("Max Iteration Budget", min_value=1, max_value=15, value=5)
+    with c_prov:
+        primary_prov = st.selectbox("Primary LLM Provider", ["ollama", "claude-cli", "codex-cli"], index=0)
+    with c_hitl:
+        st.write("")
+        st.write("")
+        enable_hitl = st.checkbox("Enable Human-in-the-Loop Checkpoints", value=True)
+
+    # 2. Controlled Disruption Demo Injection Panel
+    with st.expander("⚡ Demo Disruption & Failure Injection Framework", expanded=False):
+        st.markdown("Test agent robustness by injecting domain disruptions or technical failures into runtime execution:")
+        d_col1, d_col2, d_col3 = st.columns([1, 1, 1])
+        
+        with d_col1:
+            domain_disp = st.selectbox(
+                "Domain Disruption",
+                [
+                    "None",
+                    "Increase Polarization Surge (+0.35)",
+                    "Increase Stakeholder Opposition (-0.30 Acceptance)",
+                    "Reduce Budget Constraint (-0.25 Adoption)",
+                ]
+            )
+        with d_col2:
+            tech_disp = st.selectbox(
+                "Technical/System Failure",
+                [
+                    "None",
+                    "Simulate Primary LLM Timeout (Triggers Provider Failover)",
+                    "Simulate Provider Unavailable (Connection Refused)",
+                    "Return Malformed Tool Response (Corrupted JSON)",
+                    "Simulate OASIS Malformed Execution Output",
+                    "Raise Controlled Tool Exception",
+                ]
+            )
+        with d_col3:
+            st.write("")
+            st.write("")
+            if st.button("Apply Injected Disruption", use_container_width=True):
+                disp_eng: DisruptionEngine = st.session_state.disruption_engine
+                prov_mgr: ProviderFailoverManager = st.session_state.provider_manager
+                
+                # Handle Domain
+                if "Polarization" in domain_disp:
+                    disp_eng.inject_domain_disruption(DomainDisruptionType.INCREASE_POLARIZATION, {"polarization_boost": 0.35})
+                    st.success("Injected: Polarization surge disruption active!")
+                elif "Opposition" in domain_disp:
+                    disp_eng.inject_domain_disruption(DomainDisruptionType.INCREASE_STAKEHOLDER_OPPOSITION, {"opposition_penalty": 0.30})
+                    st.success("Injected: Stakeholder opposition disruption active!")
+                elif "Budget" in domain_disp:
+                    disp_eng.inject_domain_disruption(DomainDisruptionType.REDUCE_BUDGET, {"budget_penalty": 0.25})
+                    st.success("Injected: Budget reduction disruption active!")
+                
+                # Handle Tech
+                if "Timeout" in tech_disp:
+                    prov_mgr.inject_provider_failure(primary_prov, "timeout")
+                    disp_eng.inject_technical_disruption(TechnicalDisruptionType.FORCE_LLM_TIMEOUT)
+                    st.warning("Injected: LLM Timeout on primary provider active!")
+                elif "Unavailable" in tech_disp:
+                    prov_mgr.inject_provider_failure(primary_prov, "unavailable")
+                    disp_eng.inject_technical_disruption(TechnicalDisruptionType.FORCE_PROVIDER_UNAVAILABLE)
+                    st.warning("Injected: Provider unavailable active!")
+                elif "Malformed" in tech_disp:
+                    disp_eng.inject_technical_disruption(TechnicalDisruptionType.RETURN_MALFORMED_TOOL_RESPONSE)
+                    st.warning("Injected: Malformed tool response active!")
+                elif "OASIS" in tech_disp:
+                    disp_eng.inject_technical_disruption(TechnicalDisruptionType.FORCE_OASIS_MALFORMED_OUTPUT)
+                    st.warning("Injected: OASIS execution corruption active!")
+                elif "Exception" in tech_disp:
+                    disp_eng.inject_technical_disruption(TechnicalDisruptionType.RAISE_TOOL_EXCEPTION)
+                    st.warning("Injected: Controlled tool exception active!")
+
+    # 3. Action Execution Controls
+    st.markdown("---")
+    btn_col1, btn_col2, btn_col3 = st.columns([2, 1, 1])
+
+    with btn_col1:
+        start_clicked = st.button("▶ Start Autonomous Decision Run", type="primary", use_container_width=True)
+    with btn_col2:
+        step_clicked = st.button("⏭ Step Forward (1 Action)", use_container_width=True)
+    with btn_col3:
+        reset_clicked = st.button("🔄 Reset Agent State", use_container_width=True)
+
+    if reset_clicked:
+        st.session_state.agent_state = None
+        st.session_state.agent_controller = None
+        st.session_state.agent_traces = []
+        st.session_state.disruption_engine = DisruptionEngine()
+        st.session_state.provider_manager = ProviderFailoverManager()
+        st.success("Agent state reset.")
+        st.rerun()
+
+    # Trace collector helper
+    def _ui_trace_collector(phase: str, msg: str, payload: Dict[str, Any]):
+        st.session_state.agent_traces.append({
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "phase": phase,
+            "message": msg,
+            "payload": payload,
+        })
+
+    # Start or Step logic
+    if start_clicked or step_clicked:
+        if st.session_state.agent_controller is None or st.session_state.agent_state is None:
+            # Initialize fresh run in RunStore
+            store = RunStore()
+            manifest = store.create_autonomous_run(
+                goal=goal_input,
+                source_files=uploaded_doc_paths,
+                constraints=parsed_constraints,
+                project_name="Autonomous Decision Run",
+            )
+            run_id = manifest["run_id"]
+            if uploaded_doc_paths:
+                store.freeze_source_files(run_id, uploaded_doc_paths)
+
+            # Initialize fresh controller and state
+            state = DecisionState(
+                run_id=run_id,
+                goal=goal_input,
+                problem_statement=goal_input,
+                source_files=uploaded_doc_paths,
+                constraints=parsed_constraints,
+                max_iterations=int(max_iterations),
+                primary_provider=primary_prov,
+                active_provider=primary_prov,
+            )
+            controller = AutonomousDecisionController(
+                state=state,
+                provider_manager=st.session_state.provider_manager,
+                disruption_engine=st.session_state.disruption_engine,
+                on_trace_callback=_ui_trace_collector,
+            )
+            st.session_state.agent_state = state
+            st.session_state.agent_controller = controller
+            st.session_state.agent_traces = []
+            controller.initialize_run(
+                goal=goal_input,
+                problem_statement=goal_input,
+                source_files=uploaded_doc_paths,
+                constraints=parsed_constraints,
+                max_iterations=int(max_iterations),
+                primary_provider=primary_prov,
+            )
+
+        controller = st.session_state.agent_controller
+        controller.on_trace_callback = _ui_trace_collector
+
+        if start_clicked:
+            with st.spinner("Autonomous Decision Agent is executing the closed-loop optimization cycle..."):
+                controller.run_until_completion()
+        elif step_clicked:
+            with st.spinner("Agent executing single action step..."):
+                controller.execute_next_step()
+
+    # 4. Human-in-the-Loop Checkpoint Card (if pending)
+    state: Optional[DecisionState] = st.session_state.agent_state
+    if state and state.human_interaction_pending and state.human_interaction_request:
+        st.markdown("### 🛑 Human Stakeholder Checkpoint Required")
+        req_data = state.human_interaction_request
+        
+        st.warning(f"**{req_data.get('title', 'Confirmation')}**\n\n{req_data.get('prompt', '')}")
+        
+        human_guidance_input = st.text_input(
+            "📝 Human Policy Guidance / Tradeoff Directive (Optional):",
+            placeholder="e.g., Add a bus discount and cap peak toll at $3.00",
+            key="human_guidance_directive",
+        )
+
+        h_col1, h_col2 = st.columns(2)
+        with h_col1:
+            if st.button("✅ Approve Policy Modification & Continue", type="primary", use_container_width=True):
+                controller = st.session_state.agent_controller
+                controller.resume_after_human(approval=True, text_input=human_guidance_input or None)
+                st.rerun()
+        with h_col2:
+            if st.button("❌ Reject & Force Re-planning Alternative", use_container_width=True):
+                controller = st.session_state.agent_controller
+                controller.resume_after_human(approval=False, text_input=human_guidance_input or None)
+                st.rerun()
+
+    # 5. Agent Dashboard & Metrics (if active)
+    if state:
+        st.markdown("---")
+        st.subheader("2. Real-Time Agent State & KPI Overview")
+        
+        m1, m2, m3, m4 = st.columns(4)
+        status_val = state.status.value if isinstance(state.status, AgentStatus) else state.status
+        status_color = {
+            "verified": "🟢 VERIFIED",
+            "planning": "🟣 PLANNING",
+            "executing": "🟠 EXECUTING",
+            "evaluating": "🔵 EVALUATING",
+            "replanning": "🟡 REPLANNING",
+            "unresolved": "🔴 UNRESOLVED",
+            "failed": "🔴 FAILED",
+            "paused_for_human": "🛑 PAUSED (HUMAN)",
+        }.get(status_val, f"⚪ {status_val.upper()}")
+
+        with m1:
+            st.metric("Iteration Budget", f"{state.iteration_count} / {state.max_iterations}")
+        with m2:
+            st.metric("Agent Status", status_color)
+        with m3:
+            best_s = f"{state.best_score:.2f}" if state.best_score >= 0 else "N/A"
+            st.metric("Best Viability Score", best_s)
+        with m4:
+            st.metric("Active LLM Provider", state.active_provider.upper())
+
+        # Constraints Checklist
+        st.markdown("**Constraint Verification Status:**")
+        chk_col1, chk_col2 = st.columns(2)
+        with chk_col1:
+            st.markdown("##### 🎯 Target Constraints")
+            for c_name, c_expr in state.constraints.items():
+                st.markdown(f"- `{c_name}`: **{c_expr}**")
+        with chk_col2:
+            st.markdown("##### 📊 Latest Verification Outcome")
+            if state.verification_history:
+                latest_v = state.verification_history[-1]
+                for s in latest_v.satisfied_constraints:
+                    st.markdown(f"🟢 **{s}**")
+                for v in latest_v.violated_constraints:
+                    st.markdown(f"🔴 **{v}**")
+                if latest_v.uncertain_aspects:
+                    for u in latest_v.uncertain_aspects:
+                        st.markdown(f"🟡 *{u}*")
+            else:
+                st.info("No verification completed yet.")
+
+        # 6. Live Agent Trace Display
+        st.markdown("---")
+        st.subheader("3. Live Autonomous Execution Trace")
+        
+        trace_container = st.container()
+        with trace_container:
+            for trace in st.session_state.agent_traces:
+                phase = trace.get("phase", "EVENT").upper()
+                msg = trace.get("message", "")
+                ts = trace.get("timestamp", "")
+                payload = trace.get("payload", {})
+                
+                badge_style = {
+                    "GOAL": "background:#e8f5e9; color:#2e7d32; border-left: 4px solid #2e7d32;",
+                    "OBSERVE": "background:#e3f2fd; color:#1565c0; border-left: 4px solid #1565c0;",
+                    "PLAN": "background:#f3e5f5; color:#6a1b9a; border-left: 4px solid #6a1b9a;",
+                    "ACTION": "background:#fff3e0; color:#e65100; border-left: 4px solid #e65100;",
+                    "EVALUATE": "background:#e0f7fa; color:#00838f; border-left: 4px solid #00838f;",
+                    "VERIFY": "background:#fbe9e7; color:#d84315; border-left: 4px solid #d84315;",
+                    "VERIFIED": "background:#e8f5e9; color:#1b5e20; border-left: 5px solid #1b5e20; font-weight:bold;",
+                    "FAILED": "background:#ffebee; color:#c62828; border-left: 4px solid #c62828;",
+                    "REPLAN": "background:#fffde7; color:#f57f17; border-left: 4px solid #f57f17;",
+                    "RECOVERY": "background:#e1f5fe; color:#0277bd; border-left: 4px solid #0277bd;",
+                    "HUMAN": "background:#fff8e1; color:#ff8f00; border-left: 4px solid #ff8f00;",
+                    "FINALIZE": "background:#e8f5e9; color:#1b5e20; border-left: 5px solid #1b5e20; font-weight:bold;",
+                    "UNRESOLVED": "background:#ffebee; color:#b71c1c; border-left: 5px solid #b71c1c;",
+                }.get(phase, "background:#fafafa; color:#333; border-left: 4px solid #aaa;")
+
+                st.markdown(
+                    f'<div class="trace-card" style="{badge_style}"><strong>[{ts}] {phase}</strong>: {msg}</div>',
+                    unsafe_allow_html=True,
+                )
+
+                # If Planner payload, show candidate ranking table
+                if phase == "PLAN" and "candidates" in payload:
+                    with st.expander(f"🔍 Action Utility Ranking Breakdown (Round {trace.get('timestamp')})"):
+                        st.caption("Transparent multi-action ranking based on Action Utility formula:")
+                        cand_rows = []
+                        for c in payload["candidates"]:
+                            cand_rows.append({
+                                "Rank Score": f"{c.get('score', 0.0):.2f}",
+                                "Candidate Action": c.get("action_name", ""),
+                                "Goal Progress": f"{c.get('goal_progress', 0.0):.2f}",
+                                "Constraint Recovery": f"{c.get('constraint_recovery_potential', 0.0):.2f}",
+                                "Info Gain": f"{c.get('information_gain', 0.0):.2f}",
+                                "Cost/Risk": f"{(c.get('action_cost', 0.0) + c.get('failure_risk', 0.0)):.2f}",
+                                "Rationale": c.get("rationale", ""),
+                            })
+                        st.table(cand_rows)
+
+        # 7. Candidate Scenarios Explored
+        if state.candidate_scenarios:
+            st.markdown("---")
+            st.subheader("4. Candidate Policy Scenarios Explored")
+            scen_table = []
+            for s_id, s_data in state.candidate_scenarios.items():
+                s_impact = state.social_impact_results.get(s_id, {})
+                scen_table.append({
+                    "Scenario ID": s_id,
+                    "Policy Name": s_data.get("name", ""),
+                    "Intervention Summary": s_data.get("intervention", "")[:80] + "...",
+                    "Viability Score": f"{s_impact.get('overall_score', 0.0):.2f}" if s_impact else "Pending",
+                    "Polarization": f"{s_impact.get('polarization_score', 0.0):.2f}" if s_impact else "Pending",
+                    "Conflict": f"{s_impact.get('conflict_score', 0.0):.2f}" if s_impact else "Pending",
+                    "Adoption": f"{s_impact.get('adoption_score', 0.0):.2f}" if s_impact else "Pending",
+                })
+            st.dataframe(scen_table, use_container_width=True)
+
+        # 8. Final Outcome & Persistence Export
+        if state.status in (AgentStatus.VERIFIED, AgentStatus.UNRESOLVED, AgentStatus.FAILED):
+            st.markdown("---")
+            st.subheader("5. Final Outcome & Persistent Audit Artifacts")
+            
+            if state.status == AgentStatus.VERIFIED:
+                st.success(f"🎉 **OPTIMAL POLICY VERIFIED**: {state.final_outcome_summary}")
+            else:
+                st.error(f"⚠️ **SAFE STOP**: {state.final_outcome_summary}")
+
+            # Save to Store
+            store = RunStore()
+            persisted = store.persist_autonomous_state(state.run_id, state.to_dict())
+            
+            st.markdown(f"**Run Artifacts Persisted under `uploads/runs/{state.run_id}/autonomous_run/`:**")
+            for art_key, art_path in persisted.items():
+                st.text(f"📄 {art_key}: {art_path}")
+
+            st.download_button(
+                "📥 Download Autonomous Run State (JSON)",
+                data=json.dumps(state.to_dict(), indent=2, ensure_ascii=False),
+                file_name=f"{state.run_id}_state.json",
+                mime="application/json",
+            )
+
+            if "demo_trace" in persisted and os.path.exists(persisted["demo_trace"]):
+                with open(persisted["demo_trace"], "r", encoding="utf-8") as _trace_f:
+                    _trace_data = _trace_f.read()
+                st.download_button(
+                    "📥 Download Human-Readable Audit Trace (demo_trace.md)",
+                    data=_trace_data,
+                    file_name=f"{state.run_id}_demo_trace.md",
+                    mime="text/markdown",
+                )
 
 
 # Main app
@@ -1370,7 +1815,9 @@ def main():
     # Route to appropriate page
     page = st.session_state.current_page
     
-    if page == 'dashboard':
+    if page == 'autonomous_agent':
+        render_autonomous_agent()
+    elif page == 'dashboard':
         render_dashboard()
     elif page == 'community_problem':
         render_community_problem()
@@ -1401,8 +1848,8 @@ def main():
     elif page == 'about':
         render_about()
     else:
-        render_dashboard()
+        render_autonomous_agent()
 
 
 if __name__ == "__main__":
-    main()
+    main()

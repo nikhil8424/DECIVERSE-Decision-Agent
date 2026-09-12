@@ -1,4 +1,4 @@
-"""Research-oriented architecture for MiroFish Community - AI-Powered Social Decision Simulator.
+"""Research-oriented architecture for DECIVERSE - AI-Powered Social Decision Simulator.
 
 This module provides the research framework layers built on top of the foundational
 MiroFish/OASIS simulation technology. The research contribution is the decision-oriented

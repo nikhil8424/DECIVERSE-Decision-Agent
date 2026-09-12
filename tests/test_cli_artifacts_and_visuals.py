@@ -75,8 +75,15 @@ def test_cli_parser_is_run_first():
     parser = build_parser()
     subparsers = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
 
-    assert set(subparsers.choices) == {"run", "runs", "doctor"}
+    assert set(subparsers.choices) == {"run", "runs", "doctor", "autonomous-run", "autonomous-demo"}
 
+    auto_help = subparsers.choices["autonomous-run"].format_help()
+    assert "--files" in auto_help
+    assert "--goal" in auto_help
+    assert "--constraints" in auto_help
+    demo_help = subparsers.choices["autonomous-demo"].format_help()
+    assert "--files" in demo_help
+    assert "--goal" in demo_help
     run_help = subparsers.choices["run"].format_help()
     assert "--files" in run_help
     assert "--requirement" in run_help
@@ -149,4 +156,37 @@ def test_cli_runs_list_and_status_emit_json(tmp_path: Path, monkeypatch: pytest.
     assert exit_code == 0
     assert export_payload["artifact"] == "swarm_overview"
     assert export_payload["path"].replace("\\", "/").endswith("visuals/swarm-overview.svg")
+
+
+def test_persist_autonomous_state_auto_creates_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path / "uploads"))
+
+    store = RunStore()
+    run_id = "agent_run_custom123"
+    state_dict = {
+        "run_id": run_id,
+        "goal": "Test auto manifest creation",
+        "status": "verified",
+        "best_scenario_name": "Policy Option A",
+        "best_score": 0.85,
+        "constraints": {"polarization": "<0.35"},
+        "decision_history": [],
+        "tool_events": [],
+        "system_failures": [],
+        "domain_disruptions": [],
+        "verification_history": [],
+    }
+
+    persisted = store.persist_autonomous_state(run_id, state_dict)
+    assert "state" in persisted
+    assert "final_result" in persisted
+    assert "demo_trace" in persisted
+
+    manifest = store.load(run_id)
+    assert manifest["run_id"] == run_id
+    assert manifest["status"] == "verified"
+    assert manifest["best_score"] == 0.85
+    assert "agent_state" in manifest["artifacts"]
+    assert "demo_trace" in manifest["artifacts"]
+
 

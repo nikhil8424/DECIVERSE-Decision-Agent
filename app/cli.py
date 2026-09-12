@@ -1,4 +1,4 @@
-"""Minimal run-first CLI for MiroFish."""
+"""Minimal run-first CLI for DECIVERSE."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from .visual_snapshots import generate_visual_snapshots
 
 logger = get_logger('mirofish.cli')
 
-DEFAULT_PROJECT_NAME = "MiroFish Run"
+DEFAULT_PROJECT_NAME = "DECIVERSE Run"
 DEFAULT_PARALLEL_PROFILE_COUNT = 5
 
 
@@ -536,7 +536,7 @@ def _run_pipeline(args: argparse.Namespace) -> Dict[str, Any]:
 
 
 def cmd_doctor() -> int:
-    """Run environment/config diagnostics for mirofish."""
+    """Run environment/config diagnostics for deciverse."""
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     env_path = os.path.join(repo_root, ".env")
 
@@ -659,11 +659,291 @@ def _handle_command(args: argparse.Namespace) -> Dict[str, Any]:
         }
     if args.command == "run":
         return _run_pipeline(args)
+    if args.command == "autonomous-run":
+        return _run_autonomous(args)
+    if args.command == "autonomous-demo":
+        return _run_autonomous_demo(args)
     raise RuntimeError("Unknown command")
 
 
+def _run_autonomous(args: argparse.Namespace) -> Dict[str, Any]:
+    """Execute the full autonomous decision control loop."""
+    from .agent import (
+        AutonomousDecisionController,
+        DecisionState,
+        DisruptionEngine,
+        DomainDisruptionType,
+        ProviderFailoverManager,
+        TechnicalDisruptionType,
+    )
+
+    source_files = _require_existing_files(args.files)
+    goal = args.goal
+    store = RunStore(root_dir=args.output_dir)
+
+    # Parse constraints (comma-separated or dict)
+    constraints = {}
+    if args.constraints:
+        for item in args.constraints.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if "<=" in item:
+                k, v = item.split("<=", 1)
+                constraints[k.strip()] = f"<={v.strip()}"
+            elif ">=" in item:
+                k, v = item.split(">=", 1)
+                constraints[k.strip()] = f">={v.strip()}"
+            elif "<" in item:
+                k, v = item.split("<", 1)
+                constraints[k.strip()] = f"<{v.strip()}"
+            elif ">" in item:
+                k, v = item.split(">", 1)
+                constraints[k.strip()] = f">{v.strip()}"
+            elif "=" in item:
+                k, v = item.split("=", 1)
+                constraints[k.strip()] = f"=={v.strip()}"
+            else:
+                constraints[item] = "<0.35"
+    else:
+        constraints = {"polarization": "<0.35", "conflict": "<0.30", "adoption": ">0.60"}
+
+    # Initialize run store
+    manifest = store.create_autonomous_run(
+        goal=goal,
+        source_files=source_files,
+        constraints=constraints,
+        project_name=args.project_name or "Autonomous Decision Run",
+    )
+    run_id = manifest["run_id"]
+    store.freeze_source_files(run_id, source_files)
+
+    # Setup provider and disruptions
+    provider_mgr = ProviderFailoverManager(primary_provider=args.provider or Config.LLM_PROVIDER)
+    disruption_engine = DisruptionEngine()
+
+    if getattr(args, "inject_domain_disruption", None):
+        try:
+            dtype = DomainDisruptionType(args.inject_domain_disruption)
+            disruption_engine.inject_domain_disruption(dtype)
+        except Exception as e:
+            _stderr(f"Warning: Unknown domain disruption type: {e}")
+
+    if getattr(args, "inject_technical_disruption", None):
+        try:
+            ttype = TechnicalDisruptionType(args.inject_technical_disruption)
+            disruption_engine.inject_technical_disruption(ttype)
+        except Exception as e:
+            _stderr(f"Warning: Unknown technical disruption type: {e}")
+
+    # Trace callback for live terminal output
+    def _trace(phase: str, message: str, payload: Optional[Dict[str, Any]] = None):
+        if not getattr(args, "json", False):
+            _stderr(f"[{phase}] {message}")
+
+    state = DecisionState(
+        run_id=run_id,
+        goal=goal,
+        problem_statement=goal,
+        source_files=source_files,
+        constraints=constraints,
+        max_iterations=args.max_iterations or 5,
+        primary_provider=provider_mgr.primary_provider,
+        active_provider=provider_mgr.active_provider,
+    )
+
+    controller = AutonomousDecisionController(
+        state=state,
+        provider_manager=provider_mgr,
+        disruption_engine=disruption_engine,
+        on_trace_callback=_trace,
+    )
+
+    _trace("START", f"Launching Autonomous Decision Controller for run {run_id}")
+    final_state = controller.run_until_completion()
+
+    # Persist artifacts
+    saved_artifacts = store.persist_autonomous_state(run_id, final_state.to_dict())
+
+    return {
+        "run_id": run_id,
+        "status": final_state.status.value,
+        "goal": final_state.goal,
+        "best_scenario_id": final_state.best_scenario_id,
+        "best_scenario_name": final_state.best_scenario_name,
+        "best_score": final_state.best_score,
+        "final_outcome_summary": final_state.final_outcome_summary,
+        "iterations_completed": final_state.iteration_count,
+        "max_iterations": final_state.max_iterations,
+        "decisions_count": len(final_state.decision_history),
+        "tool_events_count": len(final_state.tool_events),
+        "verification_history": [v.to_dict() for v in final_state.verification_history],
+        "artifacts": saved_artifacts,
+    }
+
+
+def _run_autonomous_demo(args: argparse.Namespace) -> Dict[str, Any]:
+    """Execute a real, deterministic, closed-loop demonstration of the Autonomous Decision Agent.
+
+    Demonstrates:
+    1. Goal & Constraint Ingestion
+    2. Context Observation & Stakeholder Entity Grounding
+    3. Action Utility Planning & Transparent Candidate Ranking
+    4. Multi-Agent Simulation & Social Consequence Measurement
+    5. Constraint Failure & Root-Cause Replanning Diagnostics
+    6. Human Checkpoint & Stakeholder Directive Injection
+    7. Policy Mutation & Dynamic Re-planning
+    8. Environment Domain Disruption Handling
+    9. Technical LLM Timeout & Provider Failover Recovery
+    10. Final Constraint Verification & Audit Artifact Persistence
+    """
+    from .agent import (
+        AgentStatus,
+        AutonomousDecisionController,
+        DecisionState,
+        DisruptionEngine,
+        DomainDisruptionType,
+        ProviderFailoverManager,
+        TechnicalDisruptionType,
+    )
+
+    # Determine files
+    files = list(args.files) if getattr(args, "files", None) else ["demo_transit_policy.md"]
+    for f in files:
+        if not os.path.exists(f) and os.path.basename(f) == "demo_transit_policy.md":
+            with open(f, "w", encoding="utf-8") as demo_f:
+                demo_f.write("# Metropolitan Transit Authority Fare Modernization & Policy\n\nPolicy provisions for fare restructuring, off-peak discounts, and commuter incentives.\n")
+    source_files = _require_existing_files(files)
+    goal = getattr(args, "goal", None) or "Find the most socially viable transit policy that eliminates ideological polarization and maximizes commuter adoption"
+    store = RunStore(root_dir=getattr(args, "output_dir", None))
+
+    constraints = {
+        "polarization": "<0.35",
+        "conflict": "<0.30",
+        "adoption": ">0.50",
+    }
+
+    manifest = store.create_autonomous_run(
+        goal=goal,
+        source_files=source_files,
+        constraints=constraints,
+        project_name="DECIVERSE Hackathon Demo Run",
+    )
+    run_id = manifest["run_id"]
+    store.freeze_source_files(run_id, source_files)
+
+    provider_mgr = ProviderFailoverManager(primary_provider="ollama", fallback_chain=["ollama", "claude-cli", "codex-cli"])
+    disruption_engine = DisruptionEngine()
+
+    def _demo_trace(phase: str, message: str, payload: Optional[Dict[str, Any]] = None):
+        if not getattr(args, "json", False):
+            icons = {
+                "GOAL": "🎯",
+                "OBSERVE": "🔍",
+                "PLAN": "📋",
+                "ACTION": "⚡",
+                "EVALUATE": "📊",
+                "VERIFY": "🔎",
+                "VERIFIED": "🎉",
+                "FAILED": "⚠️",
+                "REPLAN": "🔄",
+                "HUMAN": "👤",
+                "RECOVERY": "🛡️",
+                "FINALIZE": "🏁",
+                "UNRESOLVED": "🛑",
+            }
+            icon = icons.get(phase.upper(), "📌")
+            _stderr(f"{icon} [{phase}] {message}")
+
+    state = DecisionState(
+        run_id=run_id,
+        goal=goal,
+        problem_statement=goal,
+        source_files=source_files,
+        constraints=constraints,
+        max_iterations=8,
+        primary_provider=provider_mgr.primary_provider,
+        active_provider=provider_mgr.active_provider,
+    )
+
+    controller = AutonomousDecisionController(
+        state=state,
+        provider_manager=provider_mgr,
+        disruption_engine=disruption_engine,
+        on_trace_callback=_demo_trace,
+    )
+
+    _stderr("\n" + "=" * 80)
+    _stderr("🌐 DECIVERSE AUTONOMOUS DECISION AGENT — LIVE CLOSED-LOOP DEMO")
+    _stderr("=" * 80 + "\n")
+    _demo_trace("GOAL", f"Objective: {goal}")
+    _demo_trace("GOAL", f"Target Constraints: {', '.join(f'{k} {v}' for k, v in constraints.items())}")
+
+    # Step 1: Initialize run & observe context
+    controller.initialize_run(
+        goal=goal,
+        problem_statement=goal,
+        source_files=source_files,
+        constraints=constraints,
+        max_iterations=8,
+    )
+
+    # Step 2: Formulate baseline and simulate
+    _stderr("\n--- [Phase 1/4: Initial Planning & Social Simulation] ---")
+    # Step 1: Observe context
+    controller.execute_next_step()
+    # Step 2: Create baseline scenario
+    controller.execute_next_step()
+    # Step 3: Simulate baseline and verify (fails strict constraints)
+    controller.execute_next_step()
+
+    # Step 3: Human-in-the-Loop guidance on tradeoff
+    _stderr("\n--- [Phase 2/4: Human-in-the-Loop Policy Guidance] ---")
+    human_directive = "Provide tiered student/senior bus discounts and cap peak congestion toll at $3.00."
+    _demo_trace("HUMAN", f"Human policymaker rejected baseline due to stakeholder friction and provided directive: '{human_directive}'")
+    controller.resume_after_human(approval=False, text_input=human_directive)
+
+    # Step 4: Inject Domain Disruption & Technical Provider Timeout
+    _stderr("\n--- [Phase 3/4: Adversarial Disruptions & Provider Failover] ---")
+    _demo_trace("ACTION", "Injecting controlled domain disruption: Fuel Price Surge / Merchant Pushback")
+    disruption_engine.inject_domain_disruption(DomainDisruptionType.INCREASE_STAKEHOLDER_OPPOSITION)
+
+    _demo_trace("ACTION", "Injecting technical failure: Primary LLM Provider (ollama) Timeout")
+    provider_mgr.inject_provider_failure("ollama", "Connection timeout after 30s")
+
+    # Step 5: Resume closed loop until verification
+    _stderr("\n--- [Phase 4/4: Adaptive Replanning & Final Verification] ---")
+    controller.run_until_completion(max_steps=10)
+
+    # Persist all artifacts including demo_trace.md
+    saved_artifacts = store.persist_autonomous_state(run_id, state.to_dict())
+
+    _stderr("\n" + "=" * 80)
+    _stderr("🏁 DEMO EXECUTION COMPLETE — AUDIT EVIDENCE PERSISTED")
+    _stderr("=" * 80)
+    _stderr(f"📄 Run Directory: {store.run_dir(run_id)}")
+    _stderr(f"📄 Human-Readable Trace: {saved_artifacts.get('demo_trace')}")
+    _stderr(f"📊 Final Policy: {state.best_scenario_name} (Viability: {state.best_score:.2f})")
+    _stderr(f"🟢 Final Status: {state.status.value.upper()}\n")
+
+    return {
+        "run_id": run_id,
+        "status": state.status.value,
+        "goal": state.goal,
+        "best_scenario_id": state.best_scenario_id,
+        "best_scenario_name": state.best_scenario_name,
+        "best_score": state.best_score,
+        "final_outcome_summary": state.final_outcome_summary,
+        "iterations_completed": state.iteration_count,
+        "decisions_count": len(state.decision_history),
+        "tool_events_count": len(state.tool_events),
+        "verification_history": [v.to_dict() for v in state.verification_history],
+        "artifacts": saved_artifacts,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="mirofish", description="Minimal run-first CLI for MiroFish")
+    parser = argparse.ArgumentParser(prog="deciverse", description="Minimal run-first CLI for DECIVERSE")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="Run the full workflow and persist artifacts")
@@ -684,6 +964,51 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--wait", action="store_true", help="Accepted for consistency; end-to-end run waits by default")
     run_parser.add_argument("--output-dir")
     run_parser.add_argument("--json", action="store_true")
+
+    # Autonomous Run Command
+    auto_parser = subparsers.add_parser("autonomous-run", help="Execute closed-loop autonomous decision agent")
+    auto_parser.add_argument(
+        "--files",
+        nargs="*",
+        default=[],
+        help="Source documents grounding the community decision problem",
+    )
+    auto_parser.add_argument(
+        "--goal",
+        required=True,
+        help="High-level objective / policy goal (e.g. 'Find the most socially viable transport policy')",
+    )
+    auto_parser.add_argument(
+        "--constraints",
+        help="Comma-separated constraint thresholds (e.g. 'polarization<0.35,conflict<0.30,adoption>0.60')",
+    )
+    auto_parser.add_argument("--project-name", help="Optional project label")
+    auto_parser.add_argument("--max-iterations", type=int, default=5, help="Maximum iteration budget")
+    auto_parser.add_argument("--provider", choices=("ollama", "claude-cli", "codex-cli"), help="Primary LLM provider")
+    auto_parser.add_argument("--inject-domain-disruption", help="Controlled domain disruption for demo")
+    auto_parser.add_argument("--inject-technical-disruption", help="Controlled technical disruption for demo")
+    auto_parser.add_argument("--output-dir", help="Run storage directory")
+    auto_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # Autonomous Demo Command
+    demo_parser = subparsers.add_parser(
+        "autonomous-demo",
+        help="Run real, deterministic closed-loop demo showcasing planning, human-in-the-loop, disruptions & failover",
+    )
+    demo_parser.add_argument(
+        "--files",
+        nargs="*",
+        default=["demo_transit_policy.md"],
+        help="Source documents for demo",
+    )
+    demo_parser.add_argument(
+        "--goal",
+        default="Find the most socially viable transit policy that eliminates ideological polarization and maximizes commuter adoption",
+        help="High-level policy goal",
+    )
+    demo_parser.add_argument("--output-dir", help="Run storage directory")
+    demo_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
 
     runs_parser = subparsers.add_parser("runs", help="Inspect persisted runs")
     runs_subparsers = runs_parser.add_subparsers(dest="runs_command", required=True)
@@ -721,7 +1046,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if config_errors:
         for err in config_errors:
             _stderr(f"config error: {err}")
-        _stderr("hint: run `mirofish doctor` for full diagnostics")
+        _stderr("hint: run `deciverse doctor` for full diagnostics")
         return 1
 
     try:

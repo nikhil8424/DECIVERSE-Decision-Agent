@@ -6,7 +6,7 @@ Draft v1
 
 ## One-line product definition
 
-MiroFish becomes a headless, agent-first simulation tool that runs from a CLI, emits machine-readable outputs, and generates visual snapshots of swarm behavior as artifacts.
+DECIVERSE becomes a headless, agent-first simulation tool that runs from a CLI, emits machine-readable outputs, and generates visual snapshots of swarm behavior as artifacts.
 
 ## Problem
 
@@ -67,7 +67,7 @@ The browser UI is not required for v1. If retained later, it should be a minimal
 
 ### Primary interface
 
-A single CLI executable, `mirofish`.
+A single CLI executable, `deciverse`.
 
 ### Optional human-facing surface
 
@@ -106,19 +106,19 @@ The CLI must be:
 
 ### Public surface
 
-- `mirofish run`
-- `mirofish runs list`
-- `mirofish runs status`
-- `mirofish runs export`
+- `deciverse run`
+- `deciverse runs list`
+- `deciverse runs status`
+- `deciverse runs export`
 
 Step-level commands are not part of the public v1 CLI.
 
-Graph build, simulation preparation, simulation execution, and report generation remain internal workflow stages behind `mirofish run`.
+Graph build, simulation preparation, simulation execution, and report generation remain internal workflow stages behind `deciverse run`.
 
 ## Example command shape
 
 ```bash
-mirofish run \
+deciverse run \
   --files docs/policy.pdf notes/context.md \
   --requirement "Predict public reaction over 30 days" \
   --output-dir uploads/runs \

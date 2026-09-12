@@ -1,3 +1,0 @@
-This is a test document for testing the agent count configuration.
-
-The city is considering implementing fare-free weekend buses to encourage public transportation usage and reduce traffic congestion.

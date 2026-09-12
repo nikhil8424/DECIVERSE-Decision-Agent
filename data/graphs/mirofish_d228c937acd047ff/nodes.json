@@ -1,0 +1,22 @@
+[
+  {
+    "id": "21332d18-288a-4fef-8fe3-e0e716b7eff0",
+    "name": "Mayor Jenkins",
+    "label": "Person",
+    "summary": "The mayor who announced the free weekend bus policy",
+    "facts": [],
+    "attributes": {},
+    "created_at": "2026-09-12T10:05:39.046347",
+    "updated_at": "2026-09-12T10:05:39.046347"
+  },
+  {
+    "id": "835dabfc-a48a-4ce8-bb27-e40cdc099527",
+    "name": "free weekend bus policy",
+    "label": "Organization",
+    "summary": "A policy initiative for free weekend bus service lasting 6 months",
+    "facts": [],
+    "attributes": {},
+    "created_at": "2026-09-12T10:05:39.058038",
+    "updated_at": "2026-09-12T10:05:39.058038"
+  }
+]

@@ -4,13 +4,14 @@ This layer introduces an explicit analysis layer between raw simulation output
 and final reporting. It processes simulation events and derives community-level
 behaviour patterns.
 
-Foundation: Analyzes simulation data from OASIS/MiroFish.
+Foundation: Analyzes simulation data from DECIVERSE / OASIS.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
 from collections import Counter, defaultdict
+from datetime import datetime
+import re
 import statistics
 
 from ..services.simulation_runner import SimulationRunner
@@ -159,14 +160,12 @@ class EmergentBehaviourAnalyzer:
             # Extract sentiment from action content if available
             content = action.action_args.get('content', '')
             if content:
-                # Simple sentiment heuristic based on keywords
-                # In a full implementation, this would use a proper sentiment analyzer
-                positive_keywords = ['support', 'agree', 'good', 'great', 'excellent', 'positive', 'benefit']
-                negative_keywords = ['oppose', 'disagree', 'bad', 'terrible', 'negative', 'concern', 'problem']
+                positive_keywords = {'support', 'agree', 'good', 'great', 'excellent', 'positive', 'benefit'}
+                negative_keywords = {'oppose', 'disagree', 'bad', 'terrible', 'negative', 'concern', 'problem'}
                 
-                content_lower = content.lower()
-                pos_count = sum(1 for kw in positive_keywords if kw in content_lower)
-                neg_count = sum(1 for kw in negative_keywords if kw in content_lower)
+                content_words = set(re.findall(r'\b[a-zA-Z]+\b', content.lower()))
+                pos_count = len(positive_keywords.intersection(content_words))
+                neg_count = len(negative_keywords.intersection(content_words))
                 
                 if pos_count > neg_count:
                     sentiment_values.append(0.5 + min(pos_count * 0.1, 0.5))
@@ -257,9 +256,9 @@ class EmergentBehaviourAnalyzer:
             total = pos + neg
             
             if total > 0:
-                # Polarization is high when opinions are evenly split
+                # Polarization is high when opinions are evenly split (50/50)
                 balance = min(pos, neg) / total
-                metrics.polarization_score = 1.0 - balance  # Higher when unbalanced
+                metrics.polarization_score = balance * 2.0  # 0.0 when unanimous, 1.0 when evenly split
                 metrics.sentiment_divergence = abs(pos - neg) / total
     
     def _calculate_diffusion_metrics(
@@ -285,8 +284,8 @@ class EmergentBehaviourAnalyzer:
         actions: List[Any],
     ) -> None:
         """Calculate adoption and support metrics."""
-        support_actions = ['SUPPORT', 'ENDORSE', 'AGREE', 'LIKE']
-        adopt_actions = ['ADOPT', 'IMPLEMENT', 'JOIN']
+        support_actions = ['SUPPORT', 'ENDORSE', 'AGREE', 'LIKE', 'LIKE_POST']
+        adopt_actions = ['ADOPT', 'IMPLEMENT', 'JOIN', 'SUPPORT', 'ENDORSE', 'AGREE']
         
         support_count = sum(1 for a in actions if a.action_type in support_actions)
         adopt_count = sum(1 for a in actions if a.action_type in adopt_actions)

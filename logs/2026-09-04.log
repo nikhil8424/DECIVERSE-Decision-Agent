@@ -1,1 +1,0 @@
-[2026-09-04 22:23:33] INFO [mirofish.llm_client.__init__:33] LLM client initialized: provider=ollama, model=qwen3:8b

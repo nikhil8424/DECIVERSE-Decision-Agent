@@ -1,11 +1,11 @@
 [project]
-name = "mirofish-backend"
+name = "deciverse-backend"
 version = "0.1.0"
-description = "MiroFish - A Simple & Universal Swarm Intelligence Engine, Predict Anything"
+description = "DECIVERSE - A Simple & Universal Swarm Intelligence Engine, Predict Anything"
 requires-python = ">=3.11,<3.13"
 license = { text = "AGPL-3.0" }
 authors = [
-    { name = "MiroFish Team" }
+    { name = "DECIVERSE Team" }
 ]
 
 dependencies = [
@@ -32,6 +32,7 @@ dependencies = [
 ]
 
 [project.scripts]
+deciverse = "app.cli:main"
 mirofish = "app.cli:main"
 
 [build-system]
