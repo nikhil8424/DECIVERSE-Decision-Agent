@@ -65,7 +65,7 @@ uv run deciverse autonomous-demo
 
 ### 2. Interactive Web Application (Streamlit)
 ```bash
-uv run streamlit run app/streamlit_app.py
+uv run python -m streamlit run app/streamlit_app.py
 ```
 *Navigate to **🤖 Autonomous Decision Agent** in the sidebar to test policy presets, adjust constraint sliders, inject live disruptions, and interact with human checkpoints.*
 
